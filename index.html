@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal File Vault</title>
+    <!-- Tailwind CSS for Modern Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Supabase v2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-start p-4 sm:p-6">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-3xl text-center mb-8 mt-4">
+        <div class="inline-flex items-center justify-center bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 p-3 rounded-2xl mb-3 shadow-lg shadow-indigo-500/10">
+            <i class="fa-solid fa-vault text-2xl"></i>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Personal File Vault</h1>
+        <p class="text-slate-400 text-sm sm:text-base mt-1">Upload, view, download, and delete files securely from any device.</p>
+    </header>
+
+    <!-- Main Container (Glassmorphism) -->
+    <main class="w-full max-w-3xl bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl p-5 sm:p-8 shadow-2xl space-y-6">
+
+        <!-- Upload Section -->
+        <div class="border-2 border-dashed border-slate-700 hover:border-indigo-500 transition-colors rounded-2xl p-6 text-center bg-slate-950/40 flex flex-col items-center justify-center">
+            <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-3xl mb-3"></i>
+            <p class="text-sm font-medium text-slate-300 mb-4">Choose a file from your phone or computer to upload</p>
+            
+            <!-- Clean, Unhidden File Input (Mobile Friendly) -->
+            <input type="file" id="fileInput" class="block w-full text-xs sm:text-sm text-slate-400
+                file:mr-4 file:py-2.5 file:px-4
+                file:rounded-xl file:border-0
+                file:text-xs file:font-semibold
+                file:bg-indigo-600 file:text-white
+                hover:file:bg-indigo-500 file:cursor-pointer cursor-pointer mb-4">
+
+            <button onclick="uploadFile()" id="uploadBtn" class="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-upload"></i> Upload File
+            </button>
+            <p id="uploadStatus" class="text-xs mt-3 text-slate-400 hidden"></p>
+        </div>
+
+        <!-- Files List Section -->
+        <div>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open text-indigo-400"></i> Stored Files
+                </h2>
+                <button onclick="loadFiles()" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-medium bg-indigo-950/50 border border-indigo-900/50 px-3 py-1.5 rounded-lg">
+                    <i class="fa-solid fa-rotate"></i> Refresh
+                </button>
+            </div>
+
+            <!-- File Items Container -->
+            <div id="fileList" class="space-y-3 max-h-96 overflow-y-auto pr-1">
+                <div class="text-center py-8 text-slate-500 text-sm">Loading files...</div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-slate-500">
+        Secured with Supabase Cloud Storage &bull; Built for cross-device access
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = "https://suebdnawlbnicnzbkwuc.supabase.co".replace(/\/rest\/v1\/?$/, '');
+        const SUPABASE_ANON_KEY = "sb_publishable_rDx5BFOltQHIQzGFdii6ng_HMGppoZB";
+        const BUCKET_NAME = "my-files";
+
+        // Initialize Supabase Client
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Load files on startup
+        window.addEventListener('DOMContentLoaded', () => {
+            loadFiles();
+        });
+
+        // 1. Upload File Function
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const statusEl = document.getElementById('uploadStatus');
+            const uploadBtn = document.getElementById('uploadBtn');
+
+            const file = fileInput.files[0];
+            if (!file) {
+                statusEl.textContent = "Please select a file first!";
+                statusEl.className = "text-xs mt-3 text-rose-400";
+                statusEl.classList.remove('hidden');
+                return;
+            }
+
+            const fileName = `${Date.now()}_${file.name}`;
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Uploading...`;
+            statusEl.textContent = "Uploading file to vault...";
+            statusEl.className = "text-xs mt-3 text-indigo-400";
+            statusEl.classList.remove('hidden');
+
+            try {
+                const { data, error } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .upload(fileName, file);
+
+                if (error) throw error;
+
+                statusEl.textContent = "File uploaded successfully!";
+                statusEl.className = "text-xs mt-3 text-emerald-400";
+                fileInput.value = "";
+                loadFiles();
+            } catch (error) {
+                console.error("Upload error:", error);
+                statusEl.textContent = "Error: " + error.message;
+                statusEl.className = "text-xs mt-3 text-rose-400";
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = `<i class="fa-solid fa-upload"></i> Upload File`;
+            }
+        }
+
+        // 2. Load / List Files Function
+        async function loadFiles() {
+            const fileListEl = document.getElementById('fileList');
+            fileListEl.innerHTML = `<div class="text-center py-6 text-slate-500 text-sm"><i class="fa-solid fa-spinner animate-spin mr-2"></i> Loading your files...</div>`;
+
+            try {
+                const { data, error } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .list('', { sortBy: { column: 'created_at', order: 'desc' } });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0 || (data.length === 1 && data[0].name === '.emptyFolderPlaceholder')) {
+                    fileListEl.innerHTML = `<div class="text-center py-8 text-slate-500 text-sm bg-slate-950/20 rounded-2xl border border-slate-800/50">Your vault is empty. Upload a file above!</div>`;
+                    return;
+                }
+
+                fileListEl.innerHTML = '';
+                data.forEach(file => {
+                    if (file.name === '.emptyFolderPlaceholder') return;
+
+                    // Clean name (remove timestamp prefix if desired, or keep full name)
+                    const displayName = file.name.includes('_') ? file.name.substring(file.name.indexOf('_') + 1) : file.name;
+                    const fileSize = file.metadata && file.metadata.size ? (file.metadata.size / 1024).toFixed(1) + ' KB' : '';
+
+                    // Get public URL for opening/downloading
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(BUCKET_NAME)
+                        .getPublicUrl(file.name);
+                    const fileUrl = publicUrlData.publicUrl;
+
+                    // Create File Card Element
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = "flex items-center justify-between bg-slate-950/50 border border-slate-800 hover:border-slate-700 p-3.5 rounded-xl transition-all";
+
+                    itemDiv.innerHTML = `
+                        <div class="flex items-center space-x-3 overflow-hidden mr-3">
+                            <div class="bg-indigo-600/10 text-indigo-400 p-2.5 rounded-lg flex-shrink-0">
+                                <i class="fa-solid fa-file"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <p class="text-sm font-medium text-slate-200 truncate" title="${displayName}">${displayName}</p>
+                                <p class="text-xs text-slate-500">${fileSize}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2 flex-shrink-0">
+                            <a href="${fileUrl}" target="_blank" title="View / Download" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors text-xs">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                            <button onclick="deleteFile('${file.name}')" title="Delete File" class="p-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 hover:text-rose-300 border border-rose-900/50 rounded-lg transition-colors text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    fileListEl.appendChild(itemDiv);
+                });
+
+            } catch (error) {
+                console.error("Error loading files:", error);
+                fileListEl.innerHTML = `<div class="text-center py-6 text-rose-400 text-sm">Failed to load files. Check bucket permissions or internet connection.</div>`;
+            }
+        }
+
+        // 3. Delete File Function
+        async function deleteFile(fileName) {
+            if (!confirm(`Are you sure you want to delete this file?`)) return;
+
+            try {
+                const { error } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .remove([fileName]);
+
+                if (error) throw error;
+                loadFiles();
+            } catch (error) {
+                console.error("Delete error:", error);
+                alert("Failed to delete file: " + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
